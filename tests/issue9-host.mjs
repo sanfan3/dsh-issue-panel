@@ -8,7 +8,7 @@
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { permissionWarning, loadIssuePanelConfig } from '../lib/config.js';
+import { permissionWarning, loadIssuePanelConfig, __TEST_ONLY_resetPermissionWarned } from '../lib/config.js';
 import { isValidRepo } from '../lib/index.js';
 
 let passed = 0;
@@ -36,7 +36,10 @@ const VALID = [
   'A1/B2',
   'owner/repo-name.2024',
   'a/1',
-  'owner/repo.git', // 宽松决策：.git 结尾故意放行，留给 GitHub API 422 兜底（评审 P2-02 认可）
+  'owner/repo.git', // 宽松决策：.git 结尾故意放行，留给 GitHub API 兜底。
+  // P2-02（#10 评审）：2026-09-01 实测 `gh api repos/{owner}/{repo}.git` 返回 404（GitHub
+  // 不自动剥离 .git 后缀），即 .git 结尾 repo 名在 API 层必然被拒（404/422），
+  // 本地放行无害——错误会在推送时以「GitHub 错误透传」可读提示呈现。
 ];
 for (const repo of VALID) {
   assert(isValidRepo(repo) === true, `合法 repo 通过: ${repo}`);
@@ -90,6 +93,10 @@ assert(typeof posixNull === 'string' && posixNull.includes('chmod 600'), 'POSIX 
 
 // ==================== P0-02: loadIssuePanelConfig 集成（一次性提醒，不阻断加载） ====================
 console.log('== P0-02: loadIssuePanelConfig 集成 ==');
+
+// P1-03（#10 评审）：模块级 permissionWarned 跨用例残留会污染「首次提醒」断言
+// （若其它用例先触发提醒，此处第一次读取就不会再提醒）→ 先重置保证隔离。
+__TEST_ONLY_resetPermissionWarned();
 
 const tmpHome = await mkdtemp(join(tmpdir(), 'dsh-ip-test-'));
 const cfgDir = join(tmpHome, 'issue-panel');

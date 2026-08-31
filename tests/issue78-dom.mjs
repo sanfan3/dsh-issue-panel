@@ -351,6 +351,22 @@ async function run() {
     assert(status.textContent.includes('标题是必填的'), 't1y-b focus 抛错被 catch 兜住，错误提示仍正常展示（流程不中断）');
   }
 
+  // --- t1z: #10 评审 P1-01 —— isConnected === undefined（IE11/旧 Edge 无该属性）→ 短路求值直接跳过聚焦 ---
+  {
+    const doc = makeDoc();
+    makeSidebar(doc);
+    const fetchImpl = () => Promise.resolve({ ok: true, status: 201, json: () => Promise.resolve({ number: 6, html_url: 'https://x/6' }) });
+    const { mod, ctx } = loadClient(doc, fetchImpl, MockMutationObserver);
+    mod.apply(ctx);
+    const titleInput = doc.querySelector('.dsh-ip-title');
+    const status = doc.querySelector('.dsh-ip-status');
+    titleInput.isConnected = undefined; // 模拟老浏览器（注释声明的兼容性场景）
+    doc.querySelector('.dsh-ip-btn-primary').click();
+    await sleep(0);
+    assert(titleInput._focused !== true, 't1z isConnected=undefined 不调 focus（undefined && … 恒为 false 短路跳过）');
+    assert(status.textContent.includes('标题是必填的'), 't1z-b undefined 时错误提示仍正常展示');
+  }
+
   // --- t1g: #7 提示后可继续编辑重试（拦截 → 填标题 → 成功） ---
   {
     const doc = makeDoc();
