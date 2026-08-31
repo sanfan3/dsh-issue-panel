@@ -1,0 +1,31 @@
+{
+  "name": "dsh-issue-panel",
+  "version": "0.1.0",
+  "description": "需求面板 —— 为 dsh（DeepSeek Harness）Web GUI 打造的纯按钮式 GitHub issue 创建插件（最简版：表单 + 推送）",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
+    }
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "dsh.plugin.json",
+    "README.md",
+    "LICENSE"
+  ]
+}

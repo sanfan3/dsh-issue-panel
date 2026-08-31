@@ -1,0 +1,6 @@
+# dsh-issue-panel 插件补丁：把自己的 row 插入 web profile roster。
+# 参考 dsh-at-file 等第三方插件：- insert: 下的 row 会被合并进 web roster，
+# id/name 均指向本插件包名；host 半区由 dsh 按 package.json 的 dsh.bundle.patch 解析。
+- insert:
+    - id: dsh-issue-panel
+      name: dsh-issue-panel

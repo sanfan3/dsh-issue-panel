@@ -1,0 +1,12 @@
+{
+  "name": "dsh-issue-panel",
+  "description": "需求面板 —— dsh Web GUI 纯按钮式 GitHub issue 创建插件（最简版）",
+  "version": "0.1.0",
+  "entry": {
+    "name": "dsh-issue-panel",
+    "inject": []
+  },
+  "client": {
+    "platform": "web"
+  }
+}

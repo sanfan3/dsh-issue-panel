@@ -1,0 +1,24 @@
+# Node
+node_modules/
+*.log
+npm-debug.log*
+
+# pnpm
+.pnpm-store/
+
+# Shadow instance data
+.dsh-shadow/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+.vscode/
+
+# Internal docs (PRD, issue list, autonomous state) - not public
+docs/
+
+# Internal AI-autonomy tooling (review watchdog) - not public
+scripts/
