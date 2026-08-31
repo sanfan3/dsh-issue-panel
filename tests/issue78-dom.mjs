@@ -37,6 +37,9 @@ class El {
     this._value = undefined;
     this._scrollHeightOverride = undefined;
     this.disabled = false;
+    // P1-02（#9 评审）：真实 DOM 的 isConnected（是否在文档中）；默认 true（挂在 body 下）。
+    // 测试可置 false 模拟 detached 节点，验证 focus 静默跳过。
+    this.isConnected = true;
   }
   // P1-03：value setter 同步失效 scrollHeight 手动覆盖（内容变了，旧高度模拟作废）。
   set value(v) { this._value = String(v); this._scrollHeightOverride = undefined; }
@@ -314,6 +317,22 @@ async function run() {
     assert(fetchCalls === 0 && status.textContent.includes('标题是必填的'), 't1f 纯空格标题同样本地拦截');
   }
 
+  // --- t1x: #9 评审 P1-02 —— 已 detached（isConnected=false）的标题框不调 focus（静默降级） ---
+  {
+    const doc = makeDoc();
+    makeSidebar(doc);
+    const fetchImpl = () => Promise.resolve({ ok: true, status: 201, json: () => Promise.resolve({ number: 4, html_url: 'https://x/4' }) });
+    const { mod, ctx } = loadClient(doc, fetchImpl, MockMutationObserver);
+    mod.apply(ctx);
+    const titleInput = doc.querySelector('.dsh-ip-title');
+    const status = doc.querySelector('.dsh-ip-status');
+    titleInput.isConnected = false; // 模拟已从 DOM 分离的节点
+    doc.querySelector('.dsh-ip-btn-primary').click();
+    await sleep(0);
+    assert(titleInput._focused !== true, 't1x detached 节点不调 focus（isConnected=false 静默跳过）');
+    assert(status.textContent.includes('标题是必填的'), 't1x-b detached 时错误提示仍正常展示');
+  }
+
   // --- t1g: #7 提示后可继续编辑重试（拦截 → 填标题 → 成功） ---
   {
     const doc = makeDoc();
@@ -568,6 +587,44 @@ async function run() {
     const labels = form.querySelectorAll('.dsh-ip-field-label').map((l) => l.textContent).sort().join(',');
     assert(labels === '必填,选填', 't8d #6 回归：二字标签', 'got=' + labels);
     assert(!!doc.querySelector('style[data-plugin-css="dsh-issue-panel/styles"]'), 't8e 样式注入');
+  }
+
+  // --- t9: #9 评审 P0-01 —— 同 window 重复执行 bundle（id 已注册）→ warn 跳过，不抛未捕获错误 ---
+  {
+    const doc = makeDoc();
+    makeSidebar(doc);
+    const warns = [];
+    const errors = [];
+    const captured = [];
+    const sandbox = {
+      window: { setTimeout, clearTimeout },
+      document: doc,
+      console: { ...console, warn: (...a) => warns.push(a.join(' ')), error: (...a) => errors.push(a.join(' ')) },
+      setTimeout,
+      clearTimeout,
+      MutationObserver: MockMutationObserver,
+    };
+    let registered = false;
+    sandbox.window.__ModuleLoader__ = {
+      load({ id, factory }) {
+        // 模拟 dsh-client-modules 真实行为：先检查后注册，重复 id 直接抛错（无副作用）。
+        if (registered) {
+          throw new Error('client-modules: duplicate factory registration for "' + id + '" (bundle executed twice without invalidate?)');
+        }
+        registered = true;
+        captured.push(factory);
+      },
+    };
+    vm.runInNewContext(CLIENT_SRC, sandbox, { filename: 'client.js' }); // 第一次：注册成功
+    vm.runInNewContext(CLIENT_SRC, sandbox, { filename: 'client.js' }); // 第二次：重复执行 → 应 warn 跳过
+    assert(captured.length === 1, 't9 重复执行时只注册一次 factory', 'registered=' + captured.length);
+    assert(warns.length === 1 && warns[0].includes('重复'), 't9b 重复执行时 warn 提示（不崩溃）', 'warns=' + JSON.stringify(warns));
+    assert(errors.length === 0, 't9c 重复执行不产生未捕获 error', 'errors=' + JSON.stringify(errors));
+    const mod = captured[0](() => { throw new Error('client.js should require nothing'); });
+    const cleanups = [];
+    const ctx = { effect(fn) { const r = fn(); if (typeof r === 'function') cleanups.push(r); } };
+    mod.apply(ctx);
+    assert(doc.querySelectorAll('[data-dsh-issue-panel-entry]').length === 1, 't9d 插件仍可正常应用且入口唯一');
   }
 
   // --- 汇总 ---

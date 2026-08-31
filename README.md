@@ -106,6 +106,15 @@ dsh plugin --profile web add "github:sanfan3/dsh-issue-panel"
 
 > 🔒 token 只被 host 进程读取，用于服务端调用 GitHub API，**不会出现在浏览器中**。
 
+### 配置文件权限（token 安全）
+
+`config.json` 包含 GitHub token，应限制为**仅当前用户可读**：
+
+- **Windows（NTFS ACL）**：右键 `config.json` → 属性 → 安全 → 编辑 → 选中 `Users` / `Everyone` → 移除，仅保留当前用户（若曾用管理员创建，请检查所有者并收紧权限）；
+- **macOS / Linux**：`chmod 600 %DSH_HOME%/issue-panel/config.json`。
+
+> 插件每次启动时会在进程内提醒一次核对配置权限（Windows 下纯 JS 无法校验 NTFS ACL，故采用「提醒 + 本文档」策略；若文件权限过宽导致 token 泄露，后果自负）。
+
 ---
 
 ## 架构
