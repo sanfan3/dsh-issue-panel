@@ -333,6 +333,24 @@ async function run() {
     assert(status.textContent.includes('标题是必填的'), 't1x-b detached 时错误提示仍正常展示');
   }
 
+  // --- t1y: #9 评审第 2 轮 P1-03 —— isConnected=true 但 focus() 抛错 → try-catch 兜底，流程不中断 ---
+  {
+    const doc = makeDoc();
+    makeSidebar(doc);
+    const fetchImpl = () => Promise.resolve({ ok: true, status: 201, json: () => Promise.resolve({ number: 5, html_url: 'https://x/5' }) });
+    const { mod, ctx } = loadClient(doc, fetchImpl, MockMutationObserver);
+    mod.apply(ctx);
+    const titleInput = doc.querySelector('.dsh-ip-title');
+    const status = doc.querySelector('.dsh-ip-status');
+    let focusThrown = false;
+    titleInput.isConnected = true; // 在 DOM 中（isConnected 检查通过）
+    titleInput.focus = () => { focusThrown = true; throw new Error('mock focus failure'); }; // focus 抛错
+    doc.querySelector('.dsh-ip-btn-primary').click();
+    await sleep(0);
+    assert(focusThrown === true, 't1y focus 确实被调用（isConnected=true 通过检查）');
+    assert(status.textContent.includes('标题是必填的'), 't1y-b focus 抛错被 catch 兜住，错误提示仍正常展示（流程不中断）');
+  }
+
   // --- t1g: #7 提示后可继续编辑重试（拦截 → 填标题 → 成功） ---
   {
     const doc = makeDoc();

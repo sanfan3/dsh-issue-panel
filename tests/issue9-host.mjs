@@ -83,6 +83,10 @@ assert(typeof permissionWarning(0o100640, 'linux') === 'string', 'POSIX 0640（g
 assert(permissionWarning(0o100400, 'linux') === null, 'POSIX 0400（仅 owner 读）→ 不提醒');
 assert(typeof permissionWarning(0o100444, 'linux') === 'string', 'POSIX 0444（全员可读）→ 提醒');
 assert(permissionWarning(0o100600, 'darwin') === null, 'macOS 0600 → 不提醒（POSIX 分支同规则）');
+// P1-01（#9 评审第 2 轮）：POSIX 下 stat 失败（mode=null）也要提醒「无法校验建议 chmod 600」，
+// 与 win32「无法校验即提醒」策略一致——安全提醒宁可多不可漏。
+const posixNull = permissionWarning(null, 'linux');
+assert(typeof posixNull === 'string' && posixNull.includes('chmod 600'), 'POSIX stat 失败（mode=null）→ 提醒 chmod 600（安全提醒不静默）', 'msg=' + posixNull);
 
 // ==================== P0-02: loadIssuePanelConfig 集成（一次性提醒，不阻断加载） ====================
 console.log('== P0-02: loadIssuePanelConfig 集成 ==');
