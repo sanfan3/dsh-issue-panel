@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| 状态 | 🚧 **开发中（WIP, v0.1.0）** —— 最简版：表单 + 推送 |
+| 状态 | ✅ **v1.0（完整版）** —— 四字段表单 + AI 优化 + 左右对比 + 分节推送 |
 | 形态 | dsh Web GUI 侧边栏插件（client 插件 + host 插件双面结构） |
 | 依赖 | dsh ≥ 0.1.0-rc.7（Node.js 环境） |
 | 许可证 | MIT |
@@ -31,9 +31,9 @@
 ## 功能特性
 
 - 🎛️ **纯按钮界面**：dsh 侧边栏「📋 需求面板」入口，点击展开面板，无对话、无命令行
-- 📝 **两字段表单**：标题（必填）/ 描述（选填，支持 markdown）
-- 📏 **自适应表单**：描述文本框高度随内容自动伸缩
-- 📤 **一键推送**：调 GitHub API 创建 issue，成功提示 `✓ 已创建 issue #N：<html_url>`
+- 📝 **四字段表单**：标题（必填）/ 任务（选填，自动伸缩）/ 引用（选填列表）/ 验收标准（必填列表，markdown 风格）
+- ✨ **AI 优化**：点「优化issue」调 dsh headless 优化四字段，弹出**左右对比弹窗**（左=你写的 / 右=优化后），**确认才替换、放弃不动**；引用合并去重、不覆盖用户已填
+- 📤 **一键推送**：正文按「引用 → 任务 → 验收标准」分节拼装（按有无拼接，验收标准永远有），调 GitHub API 创建 issue，成功提示 `✓ 已创建 issue #N：<html_url>`
 - 🔒 **安全设计**：GitHub token 只存 host 侧配置文件（仅当前用户可读），不进浏览器；**不提供删除/关闭等不可逆操作**
 
 ---
@@ -83,8 +83,11 @@ dsh plugin --profile web add "github:sanfan3/dsh-issue-panel"
 1. 打开 dsh Web GUI，点击侧边栏 **「📋 需求面板」**；
 2. 填写表单：
    - **标题**（必填）：一句话描述要做的事；
-   - **描述**（选填）：要做什么，支持 markdown（可写任务/验收标准）；
-3. 点击 **「📤 推送」** → 创建 GitHub issue。
+   - **任务**（选填）：要做的事拆成步骤，多行文本（高度自动伸缩）；
+   - **引用**（选填）：相关 issue 号（`#12`）或链接，逐条可加可删；
+   - **验收标准**（必填）：逐条以 `- [ ]` 开头，至少一条；
+3. （可选）点 **「✨ 优化issue」** → 左右对比 → **✓ 确认替换** 或 **放弃（不改动）**；
+4. 点 **「📤 推送」** → 创建 GitHub issue（正文按引用→任务→验收标准分节）。
 
 ---
 
@@ -128,16 +131,21 @@ dsh plugin --profile web add "github:sanfan3/dsh-issue-panel"
                │ /api/issue-panel/*
 ┌──────────────▼──────────────────────────────┐
 │ Host 插件（lib/index.js）                     │
-│  ├─ POST /api/issue-panel/create             │
-│  │    └─ fetch GitHub REST API               │
-│  └─ GET  /api/issue-panel/config             │
+│  ├─ POST /api/issue-panel/optimize          │
+│  │    └─ spawn dsh --profile headless       │
+│  ├─ POST /api/issue-panel/create            │
+│  │    └─ fetch GitHub REST API              │
+│  └─ GET  /api/issue-panel/config            │
 └──────────────────────────────────────────────┘
 ```
 
 | 面 | 文件 | 职责 |
 |---|---|---|
-| Host | `lib/index.js` | 注册 `/api/issue-panel/*` 路由、调 GitHub API、读配置 |
-| Client | `lib/client.js` | 侧边栏入口注入、面板 UI、请求 host 路由 |
+| Host | `lib/index.js` | 注册 `/api/issue-panel/*` 路由、spawn dsh headless 优化、调 GitHub API、读配置 |
+| Host | `lib/optimize.js` | 优化提示词构建、headless 调用、输出容错解析、引用合并 |
+| Host | `lib/issue-body.js` | 推送正文分节拼装（引用→任务→验收标准） |
+| Host | `lib/config.js` | 配置文件读取与 token 剥离 |
+| Client | `lib/client.js` | 侧边栏入口注入、四字段面板 UI、对比弹窗、请求 host 路由 |
 
 **技术要点**：
 
@@ -151,11 +159,12 @@ dsh plugin --profile web add "github:sanfan3/dsh-issue-panel"
 
 | 版本 | 内容 | 状态 |
 |---|---|---|
-| v0.1.0 | 最简版：侧边栏入口 + 标题/描述表单 + 一键推送 | 🚧 开发中 |
-| v0.2.0 | 设置界面（token/仓库 GUI 配置） | 规划中 |
-| v1.0.0 | AI 优化（左右对比）、验收功能 | 规划中 |
+| v0.1.0 | 最简版：侧边栏入口 + 表单 + 一键推送 | ✅ 已发布 |
+| v1.0.0 | 完整版：四字段表单 + AI 优化 + 左右对比弹窗 + 分节推送 | ✅ 已发布 |
+| v1.1.0 | 设置界面（token/仓库 GUI 配置） | 规划中 |
+| v2.0.0 | 验收功能：AI 解析验收标准并执行 | 规划中 |
 
-**明确不做的功能**（设计决策）：AI 优化（最简版不做）、删除 issue（GitHub 删除不可恢复）、第一版不做 git 代码推送。
+**明确不做的功能**（设计决策）：删除 issue（GitHub 删除不可恢复）、第一版不做 git 代码推送；AI 优化不自动查询 GitHub（dsh headless 无联网能力，2026-09-01 产品决策）。
 
 ---
 

@@ -1,7 +1,7 @@
 {
   "name": "dsh-issue-panel",
-  "version": "0.1.0",
-  "description": "需求面板 —— 为 dsh（DeepSeek Harness）Web GUI 打造的纯按钮式 GitHub issue 创建插件（最简版：表单 + 推送）",
+  "version": "1.0.0",
+  "description": "需求面板 —— 为 dsh（DeepSeek Harness）Web GUI 打造的纯按钮式 GitHub issue 创建插件（v1.0 完整版：四字段表单 + AI 优化 + 左右对比 + 分节推送）",
   "license": "MIT",
   "type": "module",
   "engines": {
