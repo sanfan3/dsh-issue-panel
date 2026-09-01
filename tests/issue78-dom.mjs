@@ -382,6 +382,7 @@ async function run() {
     await sleep(0);
     assert(status.textContent.includes('标题是必填的'), 't1g 前置：空标题被拦截');
     titleInput.value = '补充后的标题'; // 继续编辑
+    doc.querySelector('.dsh-ip-accept').value = '验收项'; // #36 起验收标准必填
     pushBtn.click(); // 重试
     await sleep(0);
     assert(fetchCalls === 1, 't1g-b 重试后发起请求', 'calls=' + fetchCalls);
@@ -400,6 +401,7 @@ async function run() {
     const { mod, ctx } = loadClient(doc, fetchImpl, MockMutationObserver);
     mod.apply(ctx);
     doc.querySelector('.dsh-ip-title').value = '测试标题';
+    doc.querySelector('.dsh-ip-accept').value = '验收项'; // #36 起验收标准必填
     const pushBtn = doc.querySelector('.dsh-ip-btn-primary');
     const status = doc.querySelector('.dsh-ip-status');
     pushBtn.click();
@@ -421,6 +423,7 @@ async function run() {
     const { mod, ctx } = loadClient(doc, fetchImpl, MockMutationObserver);
     mod.apply(ctx);
     doc.querySelector('.dsh-ip-title').value = '测试标题';
+    doc.querySelector('.dsh-ip-accept').value = '验收项'; // #36 起验收标准必填
     doc.querySelector('.dsh-ip-btn-primary').click();
     await sleep(0);
     const status = doc.querySelector('.dsh-ip-status');
@@ -435,6 +438,7 @@ async function run() {
     const { mod, ctx } = loadClient(doc, fetchImpl, MockMutationObserver);
     mod.apply(ctx);
     doc.querySelector('.dsh-ip-title').value = '测试标题';
+    doc.querySelector('.dsh-ip-accept').value = '验收项'; // #36 起验收标准必填
     const pushBtn = doc.querySelector('.dsh-ip-btn-primary');
     const status = doc.querySelector('.dsh-ip-status');
     pushBtn.click();
@@ -452,12 +456,13 @@ async function run() {
     const { mod, ctx } = loadClient(doc, fetchImpl, MockMutationObserver);
     mod.apply(ctx);
     const titleInput = doc.querySelector('.dsh-ip-title');
-    const descInput = doc.querySelector('.dsh-ip-desc');
+    const taskInput = doc.querySelector('.dsh-ip-task');
     const pushBtn = doc.querySelector('.dsh-ip-btn-primary');
     const status = doc.querySelector('.dsh-ip-status');
     titleInput.value = '  测试标题  ';
-    descInput.value = '多行\n描述';
-    descInput.scrollHeight = 88;
+    taskInput.value = '多行\n任务';
+    taskInput.scrollHeight = 88;
+    doc.querySelector('.dsh-ip-accept').value = '验收项'; // #36 起验收标准必填
     pushBtn.click();
     await sleep(0);
     assert(status.textContent.includes('✓ 已创建 issue #123'), 't4 成功文案含 issue 号', 'got=' + status.textContent);
@@ -469,10 +474,10 @@ async function run() {
     assert(link && link.getAttribute('rel') === 'noopener noreferrer', 't4f 链接 rel 安全属性');
     assert(status.className === 'dsh-ip-status', 't4g 成功状态无错误样式类', 'got=' + status.className);
     assert(titleInput.value === '', 't4h 成功后标题清空', 'got=' + JSON.stringify(titleInput.value));
-    assert(descInput.value === '', 't4i 成功后描述清空');
+    assert(taskInput.value === '', 't4i 成功后任务清空');
     // P1-03（#7 评审）：清空后 scrollHeight 动态回落（value 变化使手动覆盖失效），
     // 高度复位到「空内容基准」而非残留的多行高度——与真实 DOM 语义一致。
-    assert(descInput.style.height === '40px', 't4j 清空后描述高度复位（动态 scrollHeight=40）', 'got=' + descInput.style.height);
+    assert(taskInput.style.height === '40px', 't4j 清空后任务高度复位（动态 scrollHeight=40）', 'got=' + taskInput.style.height);
     assert(pushBtn.disabled === false, 't4k 成功后按钮恢复可用');
   }
 
@@ -484,6 +489,7 @@ async function run() {
     const { mod, ctx } = loadClient(doc, fetchImpl, MockMutationObserver);
     mod.apply(ctx);
     doc.querySelector('.dsh-ip-title').value = '测试标题';
+    doc.querySelector('.dsh-ip-accept').value = '验收项'; // #36 起验收标准必填
     doc.querySelector('.dsh-ip-btn-primary').click();
     await sleep(0);
     const status = doc.querySelector('.dsh-ip-status');
@@ -500,6 +506,7 @@ async function run() {
     const { mod, ctx } = loadClient(doc, fetchImpl, MockMutationObserver);
     mod.apply(ctx);
     doc.querySelector('.dsh-ip-title').value = '测试标题';
+    doc.querySelector('.dsh-ip-accept').value = '验收项'; // #36 起验收标准必填
     doc.querySelector('.dsh-ip-btn-primary').click();
     await sleep(0);
     const status = doc.querySelector('.dsh-ip-status');
@@ -515,6 +522,7 @@ async function run() {
     const { mod, ctx } = loadClient(doc, fetchImpl, MockMutationObserver);
     mod.apply(ctx);
     doc.querySelector('.dsh-ip-title').value = '测试标题';
+    doc.querySelector('.dsh-ip-accept').value = '验收项'; // #36 起验收标准必填
     doc.querySelector('.dsh-ip-btn-primary').click();
     await sleep(0);
     const status = doc.querySelector('.dsh-ip-status');
@@ -530,6 +538,7 @@ async function run() {
     const { mod, ctx } = loadClient(doc, fetchImpl, MockMutationObserver);
     mod.apply(ctx);
     doc.querySelector('.dsh-ip-title').value = '测试标题';
+    doc.querySelector('.dsh-ip-accept').value = '验收项'; // #36 起验收标准必填
     doc.querySelector('.dsh-ip-btn-primary').click();
     await sleep(0);
     const status = doc.querySelector('.dsh-ip-status');
@@ -548,6 +557,7 @@ async function run() {
     const { mod, ctx } = loadClient(doc, fetchImpl, MockMutationObserver);
     mod.apply(ctx);
     doc.querySelector('.dsh-ip-title').value = '测试标题';
+    doc.querySelector('.dsh-ip-accept').value = '验收项'; // #36 起验收标准必填
     const pushBtn = doc.querySelector('.dsh-ip-btn-primary');
     pushBtn.click();
     assert(pushBtn.disabled === true, 't5 请求进行中按钮禁用');
@@ -568,6 +578,7 @@ async function run() {
     const { mod, ctx, cleanups } = loadClient(doc, fetchImpl, MockMutationObserver);
     mod.apply(ctx);
     doc.querySelector('.dsh-ip-title').value = '测试标题';
+    doc.querySelector('.dsh-ip-accept').value = '验收项'; // #36 起验收标准必填
     doc.querySelector('.dsh-ip-btn-primary').click(); // 进入请求（pending）
     const entry = doc.querySelector('[data-dsh-issue-panel-entry]');
     const overlay = doc.querySelector('[data-dsh-issue-panel-overlay]');
@@ -593,6 +604,7 @@ async function run() {
     entry.click(); // 打开面板
     assert(overlay.hidden === false, 't7 前置：面板已打开');
     doc.querySelector('.dsh-ip-title').value = '测试标题';
+    doc.querySelector('.dsh-ip-accept').value = '验收项'; // #36 起验收标准必填
     doc.querySelector('.dsh-ip-btn-primary').click();
     await sleep(0);
     const status1 = doc.querySelector('.dsh-ip-status');
@@ -619,7 +631,7 @@ async function run() {
     const form = doc.querySelector('.dsh-ip-form');
     assert(!!form, 't8c #6 回归：表单存在');
     const labels = form.querySelectorAll('.dsh-ip-field-label').map((l) => l.textContent).sort().join(',');
-    assert(labels === '必填,选填', 't8d #6 回归：二字标签', 'got=' + labels);
+    assert(labels === '必填,必填,选填,选填', 't8d #6+#36 回归：四字段二字标签', 'got=' + labels);
     assert(!!doc.querySelector('style[data-plugin-css="dsh-issue-panel/styles"]'), 't8e 样式注入');
   }
 

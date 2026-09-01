@@ -273,7 +273,7 @@ function loadClient(doc, fetchImpl, MutationObserverCtor) {
 // ==================== 用例 ====================
 
 async function run() {
-  // --- t1/t2: 表单结构（两字段 + 二字标签） ---
+  // --- t1/t2: 表单结构（#36 起四字段 + 二字标签） ---
   {
     const doc = makeDoc();
     makeSidebar(doc);
@@ -283,56 +283,67 @@ async function run() {
     const form = overlay.querySelector('.dsh-ip-form');
     assert(!!form, 't1 面板内已有 .dsh-ip-form');
     const titleInput = form.querySelector('.dsh-ip-title');
-    const descInput = form.querySelector('.dsh-ip-desc');
+    const taskInput = form.querySelector('.dsh-ip-task');
     assert(!!titleInput, 't1b 标题输入框存在');
     assert(titleInput && titleInput.tagName === 'input' && titleInput.type === 'text', 't1c 标题为单行 input[type=text]');
     assert(titleInput && titleInput.getAttribute('placeholder') === '一句话描述要做的事', 't1d 标题 placeholder 正确');
-    assert(!!descInput, 't1e 描述输入框存在');
-    assert(descInput && descInput.tagName === 'textarea', 't1f 描述为多行 textarea');
-    // 标签只显示二字
+    assert(!!taskInput, 't1e 任务输入框存在（#36 由描述改造）');
+    assert(taskInput && taskInput.tagName === 'textarea', 't1f 任务为多行 textarea');
+    // #36：引用/验收标准逐条列表字段存在（初始各一行空输入）
+    const refsList = form.querySelector('.dsh-ip-refs');
+    const acceptsList = form.querySelector('.dsh-ip-accepts');
+    assert(!!refsList, 't1g 引用列表容器存在');
+    assert(refsList && refsList.querySelectorAll('.dsh-ip-ref').length === 1, 't1h 引用初始一行空输入');
+    assert(!!acceptsList, 't1i 验收标准列表容器存在');
+    assert(acceptsList && acceptsList.querySelectorAll('.dsh-ip-accept').length === 1, 't1j 验收标准初始一行空输入');
+    // 标签只显示二字（#36 四字段：标题必填/任务选填/引用选填/验收标准必填）
     const labels = form.querySelectorAll('.dsh-ip-field-label');
-    assert(labels.length === 2, 't2 恰好两个字段标签', 'count=' + labels.length);
+    assert(labels.length === 4, 't2 恰好四个字段标签', 'count=' + labels.length);
     const labelTexts = labels.map((l) => l.textContent).sort().join(',');
-    assert(labelTexts === '必填,选填', 't2b 标签文案为二字「必填/选填」', 'got=' + labelTexts);
-    // 字段顺序：必填在前
-    const firstLabel = form.querySelectorAll('.dsh-ip-field')[0].querySelector('.dsh-ip-field-label');
-    assert(firstLabel && firstLabel.textContent === '必填', 't2c 标题字段标签为「必填」');
+    assert(labelTexts === '必填,必填,选填,选填', 't2b 标签文案为二字「必填/选填」×2', 'got=' + labelTexts);
+    // 字段顺序：必填在前（标题=必填、任务=选填、引用=选填、验收标准=必填）
+    // （stub 不支持后代选择器，逐字段取 label 保序）
+    const fieldEls = form.querySelectorAll('.dsh-ip-field');
+    const order = fieldEls.map((f) => f.querySelector('.dsh-ip-field-label').textContent).join(',');
+    assert(order === '必填,选填,选填,必填', 't2c 字段顺序与标签正确', 'got=' + order);
   }
 
-  // --- t3: 描述框自动伸缩（输入变高、清空变矮） ---
+  // --- t3: 任务框自动伸缩（输入变高、清空变矮） ---
   {
     const doc = makeDoc();
     makeSidebar(doc);
     const { mod, ctx } = loadClient(doc, null, MockMutationObserver);
     mod.apply(ctx);
-    const descInput = doc.querySelector('.dsh-ip-desc');
+    const taskInput = doc.querySelector('.dsh-ip-task');
     // 输入多行内容 → scrollHeight 变大 → 高度跟随变大
-    descInput.value = '第一行\n第二行\n第三行';
-    descInput.scrollHeight = 96;
-    descInput.dispatchEvent({ type: 'input' });
-    assert(descInput.style.height === '96px', 't3 输入变高：height 跟随 scrollHeight', 'got=' + descInput.style.height);
+    taskInput.value = '第一行\n第二行\n第三行';
+    taskInput.scrollHeight = 96;
+    taskInput.dispatchEvent({ type: 'input' });
+    assert(taskInput.style.height === '96px', 't3 输入变高：height 跟随 scrollHeight', 'got=' + taskInput.style.height);
     // 清空 → scrollHeight 变小 → 高度变矮
-    descInput.value = '';
-    descInput.scrollHeight = 30;
-    descInput.dispatchEvent({ type: 'input' });
-    assert(descInput.style.height === '30px', 't3b 清空变矮：height 回落到小值', 'got=' + descInput.style.height);
+    taskInput.value = '';
+    taskInput.scrollHeight = 30;
+    taskInput.dispatchEvent({ type: 'input' });
+    assert(taskInput.style.height === '30px', 't3b 清空变矮：height 回落到小值', 'got=' + taskInput.style.height);
     // 先重置为 auto 再设值（防抖动）
-    descInput.scrollHeight = 50;
-    descInput.dispatchEvent({ type: 'input' });
-    assert(descInput.style.height === '50px', 't3c 再次输入仍正确伸缩');
+    taskInput.scrollHeight = 50;
+    taskInput.dispatchEvent({ type: 'input' });
+    assert(taskInput.style.height === '50px', 't3c 再次输入仍正确伸缩');
   }
 
-  // --- t4: 推送/关闭按钮存在且文案正确 ---
+  // --- t4: 推送/优化/关闭按钮存在且文案正确（#36 起三按钮） ---
   {
     const doc = makeDoc();
     makeSidebar(doc);
     const { mod, ctx } = loadClient(doc, null, MockMutationObserver);
     mod.apply(ctx);
     const pushBtn = doc.querySelector('.dsh-ip-btn-primary');
-    const closeBtn = doc.querySelector('.dsh-ip-btn-ghost');
-    assert(!!pushBtn && !!closeBtn, 't4 推送/关闭按钮都存在');
+    const closeBtn = doc.querySelector('.dsh-ip-btn-close');
+    const optimizeBtn = doc.querySelector('.dsh-ip-btn-optimize');
+    assert(!!pushBtn && !!closeBtn && !!optimizeBtn, 't4 推送/优化/关闭按钮都存在');
     assert(pushBtn && pushBtn.textContent === '📤 推送', 't4b 推送按钮文案', 'got=' + (pushBtn && pushBtn.textContent));
     assert(closeBtn && closeBtn.textContent === '✕ 关闭', 't4c 关闭按钮文案', 'got=' + (closeBtn && closeBtn.textContent));
+    assert(optimizeBtn && optimizeBtn.textContent === '✨ 优化issue', 't4d 优化按钮文案（FR-2）', 'got=' + (optimizeBtn && optimizeBtn.textContent));
   }
 
   // --- t5: 关闭按钮关闭面板 ---
@@ -345,7 +356,7 @@ async function run() {
     const overlay = doc.querySelector('[data-dsh-issue-panel-overlay]');
     entry.click(); // 打开
     assert(overlay.hidden === false, 't5 面板已打开（前置）');
-    const closeBtn = doc.querySelector('.dsh-ip-btn-ghost');
+    const closeBtn = doc.querySelector('.dsh-ip-btn-close');
     closeBtn.click();
     assert(overlay.hidden === true, 't5b 点击关闭按钮 → 面板关闭');
     assert(entry.getAttribute('aria-expanded') === 'false', 't5c 入口 aria-expanded 同步为 false');
@@ -367,9 +378,11 @@ async function run() {
     const { mod, ctx } = loadClient(doc, fetchImpl, MockMutationObserver);
     mod.apply(ctx);
     const titleInput = doc.querySelector('.dsh-ip-title');
-    const descInput = doc.querySelector('.dsh-ip-desc');
+    const taskInput = doc.querySelector('.dsh-ip-task');
+    const acceptInput = doc.querySelector('.dsh-ip-accept');
     titleInput.value = '  测试标题  ';
-    descInput.value = '测试描述';
+    taskInput.value = '测试任务';
+    acceptInput.value = '修复登录页'; // #36 起验收标准必填，否则被本地拦截
     const pushBtn = doc.querySelector('.dsh-ip-btn-primary');
     const status = doc.querySelector('.dsh-ip-status');
     pushBtn.click();
@@ -378,7 +391,11 @@ async function run() {
     assert(calls[0] && calls[0].url === '/api/issue-panel/create', 't6b fetch 目标为 create 路由');
     const sent = JSON.parse(calls[0].opts.body);
     assert(sent.title === '测试标题', 't6c 标题 trim 后发送', 'got=' + JSON.stringify(sent));
-    assert(sent.body === '测试描述', 't6d 描述发送');
+    // #36：payload 为四字段 draft（title/task/refs/acceptItems），不再有 body 字段
+    assert(sent.task === '测试任务', 't6c2 任务字段发送');
+    assert(Array.isArray(sent.refs) && sent.refs.length === 0, 't6c3 引用为数组（空）');
+    assert(Array.isArray(sent.acceptItems) && sent.acceptItems.length === 1 && sent.acceptItems[0] === '- [ ] 修复登录页', 't6c4 验收标准规范化后发送', 'got=' + JSON.stringify(sent.acceptItems));
+    assert(sent.body === undefined, 't6c5 payload 不再包含旧 body 字段');
     assert(status.hidden === false, 't6e 状态行可见');
     // #8 起成功文案升级为「✓ 已创建 issue #N：<链接>」+ 清空表单。
     // P0-03（#7 评审）：断言加严为精确前缀匹配，防止「文案中混入杂字/重复」的回归漏检。
@@ -390,6 +407,10 @@ async function run() {
     // P1-04（#7 评审）：链接显示文字应为完整 URL（若误写成 issue 号，测试应失败）。
     assert(link && link.textContent === 'https://github.com/sanfan3/dsh-issue-panel/issues/123', 't6f5 链接文字为完整 URL', 'got=' + (link ? link.textContent : 'null'));
     assert(titleInput.value === '', 't6g 成功后表单已清空（#8 行为）');
+    // #36：成功后任务清空 + 列表重置为单行空输入
+    assert(taskInput.value === '', 't6g2 成功后任务清空');
+    assert(doc.querySelectorAll('.dsh-ip-ref').length === 1 && doc.querySelector('.dsh-ip-ref').value === '', 't6g3 成功后引用列表重置为单行空输入');
+    assert(doc.querySelectorAll('.dsh-ip-accept').length === 1 && doc.querySelector('.dsh-ip-accept').value === '', 't6g4 成功后验收标准列表重置为单行空输入');
     assert(pushBtn.disabled === false, 't6h 请求结束后按钮恢复可用');
   }
 
@@ -423,6 +444,7 @@ async function run() {
     mod.apply(ctx);
     const titleInput = doc.querySelector('.dsh-ip-title');
     titleInput.value = '测试标题'; // #7 起空标题会被本地拦截，先填标题确保走到网络分支
+    doc.querySelector('.dsh-ip-accept').value = '验收项'; // #36 起验收标准必填
     const pushBtn = doc.querySelector('.dsh-ip-btn-primary');
     const status = doc.querySelector('.dsh-ip-status');
     pushBtn.click();
@@ -446,6 +468,7 @@ async function run() {
     mod.apply(ctx);
     const titleInput = doc.querySelector('.dsh-ip-title');
     titleInput.value = '测试标题'; // #7 起空标题会被本地拦截，先填标题
+    doc.querySelector('.dsh-ip-accept').value = '验收项'; // #36 起验收标准必填
     const pushBtn = doc.querySelector('.dsh-ip-btn-primary');
     pushBtn.click();
     assert(pushBtn.disabled === true, 't9 请求进行中按钮被禁用');
@@ -515,6 +538,7 @@ async function run() {
     mod.apply(ctx);
     const titleInput = doc.querySelector('.dsh-ip-title');
     titleInput.value = '测试标题'; // #7 起空标题会被本地拦截，先填标题
+    doc.querySelector('.dsh-ip-accept').value = '验收项'; // #36 起验收标准必填
     const pushBtn = doc.querySelector('.dsh-ip-btn-primary');
     pushBtn.click(); // 第一次：进入请求
     pushBtn.click(); // 第二次：disabled=true 应被防重入拦截（fetch 不应被再次调用）
@@ -540,6 +564,10 @@ async function run() {
     }));
     const { mod, ctx, cleanups } = loadClient(doc, fetchImpl, MockMutationObserver);
     mod.apply(ctx);
+    // #36 修正：补标题 + 验收标准，真正进入请求（旧版 title 空被本地拦截，
+    // 实际未走到 fetch pending 路径，测不到热重载竞态）。
+    doc.querySelector('.dsh-ip-title').value = '测试标题';
+    doc.querySelector('.dsh-ip-accept').value = '验收项';
     const pushBtn = doc.querySelector('.dsh-ip-btn-primary');
     pushBtn.click(); // 进入请求（pending）
     // 模拟插件卸载：移除全部节点 + 执行清理
