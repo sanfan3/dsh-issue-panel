@@ -6,7 +6,7 @@
 //   1. client.js HTTP 200 且包含 #36 四字段代码特征（dsh-ip-task / dsh-ip-accept / dsh-ip-ref）
 //   2. GET /api/issue-panel/config 200 且无 token 泄露
 //   3. POST /api/issue-panel/create 四字段 payload（title/task/refs/acceptItems）
-//      → 真实创建 issue（#36 过渡态：后端正文分节拼装由 #40 实现，body 暂为空）→ 自清理关闭
+//      → 真实创建 issue（#40：host buildIssueBody 分节拼装正文）→ 自清理关闭
 //   4. POST /create 空标题 → 400 且不触发 GitHub 调用（后端校验）
 // 运行：node tests/issue36-e2e.mjs（exit 0 = 全部 PASS；测试 issue 自动关闭，失败时打印待关列表）
 // 注意：沙箱内 e2e 不 spawn 外部命令，用 node fetch 直连（含 GitHub REST API 自清理）。
@@ -72,15 +72,27 @@ async function main() {
     assert(data && typeof data.number === 'number' && typeof data.html_url === 'string', 'e3b 返回 number + html_url');
     createdNumber = data && data.number;
     createUrl = data && data.html_url;
-    // 过渡态确认：后端 handleCreate 目前只读 title/body（#40 实现分节拼装），
-    // 四字段 draft 被忽略 → body 省略 → GitHub 存 null/''——记录为已知过渡，不视为失败。
+    // #40：host 端 buildIssueBody 分节拼装正文（引用→任务→验收标准），GitHub 上 body 应为三段结构。
     if (createdNumber && repo) {
       const ghRes = await fetch('https://api.github.com/repos/' + repo + '/issues/' + createdNumber, {
         headers: TOKEN ? { Authorization: 'Bearer ' + TOKEN } : {},
       });
       const ghData = ghRes.status === 200 ? await ghRes.json() : null;
       assert(ghData && ghData.title === draft.title, 'e3c GitHub 上 issue 标题一致', 'got=' + (ghData && ghData.title));
-      assert(ghData && (ghData.body === null || ghData.body === ''), 'e3d 过渡态 body 为空（#40 分节拼装前，已知行为）', 'got=' + JSON.stringify(ghData && ghData.body));
+      const expectedBody = [
+        '## 引用',
+        '- https://github.com/sanfan3/dsh-issue-panel/issues/1',
+        '- #12',
+        '',
+        '## 任务',
+        '1) 步骤一：改造表单',
+        '2) 步骤二：补充测试',
+        '',
+        '## 验收标准',
+        '- [ ] 表单四字段齐全',
+        '- [ ] 验收标准序列化带前缀',
+      ].join('\n');
+      assert(ghData && ghData.body === expectedBody, 'e3d body 分节拼装正确（引用→任务→验收标准）', 'got=' + JSON.stringify(ghData && ghData.body));
     }
   } catch (e) {
     assert(false, 'e3 四字段创建流程', String(e));

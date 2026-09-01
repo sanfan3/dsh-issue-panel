@@ -56,11 +56,11 @@ function check(name, cond, detail = '') {
 let createdNumber = null;
 {
   const title = `[验收测试] #7/#8 影子联调 ${Date.now()}`;
-  const body = 'e2e 验证成功反馈链路';
+  // #40：payload 为四字段 draft（正文分节拼装由 host 完成）
   const res = await fetch(BASE + '/api/issue-panel/create', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, body }),
+    body: JSON.stringify({ title, task: 'e2e 验证成功反馈链路', refs: [], acceptItems: ['- [ ] 验收一'] }),
   });
   const data = await res.json().catch(() => null);
   check('B1 创建返回 201', res.status === 201, 'status=' + res.status + ' body=' + JSON.stringify(data).slice(0, 200));
