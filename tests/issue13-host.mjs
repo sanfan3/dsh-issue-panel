@@ -119,7 +119,8 @@ assert(r.error === null, 's1 分节输出可解析（无 error）', JSON.stringi
 assert(r.draft.title === '优化后的标题', 's1b 标题节提取', 'title=' + r.draft.title);
 assert(r.draft.task === '1) 第一步\n2) 第二步' || r.draft.task === '第一步\n第二步', 's1c 任务节提取（行序保留）', 'task=' + JSON.stringify(r.draft.task));
 assert(deepEqual(r.draft.refs, ['https://api.example.com', '#42']), 's1d 引用节逐条提取', JSON.stringify(r.draft.refs));
-assert(deepEqual(r.draft.acceptItems, ['- [ ] 能打开面板', '- [ ] 已勾选的保留']), 's1e 验收节统一「- [ ] 」前缀（勾选态内容保留）', JSON.stringify(r.draft.acceptItems));
+// P1-02（#38 评审）：验收节勾选态（- [x]）原样保留，与 normalizeAcceptItem 语义一致
+assert(deepEqual(r.draft.acceptItems, ['- [ ] 能打开面板', '- [x] 已勾选的保留']), 's1e 验收节提取（勾选态 - [x] 保留，无前缀补「- [ ] 」）', JSON.stringify(r.draft.acceptItems));
 
 // 部分提取：只有标题节 → error null，draft 部分填充
 r = parseOptimizeOutput('## 标题\n只有标题');
@@ -128,6 +129,17 @@ assert(r.error === null && r.draft.title === '只有标题' && r.draft.acceptIte
 // 分节 + 纯文本混排
 r = parseOptimizeOutput('随便说点\n## 任务\n- 做A\n- 做B');
 assert(r.error === null && r.draft.task === '做A\n做B', 's3 混排文本按分节提取', JSON.stringify(r.draft));
+
+// P1-01（#38 评审）：节名误匹配——「## 任务标题」不得因 contains('标题') 误入标题分支
+r = parseOptimizeOutput('## 任务标题\n- 子步骤');
+assert(r.draft.title === '' && r.draft.task === '', 's4 节名「任务标题」不误入标题/任务（未知节名忽略，字段保持空）', JSON.stringify(r.draft));
+// 带冒号后缀的规范节名仍可识别（锚定 + 冒号）
+r = parseOptimizeOutput('## 标题：优化标题\n## 验收标准\n- [ ] 标准一');
+assert(r.error === null && r.draft.title === '优化标题' && deepEqual(r.draft.acceptItems, ['- [ ] 标准一']), 's4b 节名带冒号后缀仍识别（## 标题：… / ## 验收标准）', JSON.stringify(r.draft));
+
+// P1-03（#38 评审）：验收节勾选态 + 纯 checkbox 前缀无内容
+r = parseOptimizeOutput('## 验收标准\n- [x] 已勾选保留\n- [ ]\n- 无前缀条目');
+assert(r.error === null && deepEqual(r.draft.acceptItems, ['- [x] 已勾选保留', '- [ ] 无前缀条目']), 's5 验收节勾选态保留 + 纯前缀空条目剔除 + 无前缀补全', JSON.stringify(r.draft.acceptItems));
 
 // ==================== parseOptimizeOutput：完全无法解析 ====================
 console.log('== parseOptimizeOutput：非法输入 ==');
@@ -164,6 +176,10 @@ assert(normalizeAcceptItem('- [X] 测试') === '- [X] 测试', 'a3b - [X] 大写
 assert(normalizeAcceptItem('  - [ ]  测试  ') === '- [ ]  测试', 'a4 前后空白 trim 后保留前缀');
 assert(normalizeAcceptItem('') === '', 'a5 空串 → 空');
 assert(normalizeAcceptItem(null) === '' && normalizeAcceptItem(42) === '', 'a6 非字符串 → 空');
+// P2-02（#38 评审）：纯 checkbox 前缀无内容 → 空条目（此前原样返回残留空验收项）
+assert(normalizeAcceptItem('- [ ]') === '', 'a7 纯前缀「- [ ]」无内容 → 空');
+assert(normalizeAcceptItem('- [x]') === '', 'a7b 纯前缀「- [x]」无内容 → 空');
+assert(normalizeAcceptItem('- [ ]   ') === '', 'a7c 前缀后仅空白 → 空');
 
 // ==================== mergeRefs ====================
 console.log('== mergeRefs ==');
