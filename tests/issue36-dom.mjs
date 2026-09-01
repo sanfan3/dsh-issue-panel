@@ -435,7 +435,7 @@ async function run() {
     doc.querySelector('.dsh-ip-btn-primary').click();
     await sleep(0);
     assert(fetchCalls === 0, 't5 验收标准为空不发请求', 'calls=' + fetchCalls);
-    assert(status.textContent === '⚠️ 验收标准至少写一条', 't5b 拦截提示文案精确「⚠️ 验收标准至少写一条」', 'got=' + status.textContent);
+    assert(status.textContent === '⚠️ 验收标准至少写一条（空白行不计入）', 't5b 拦截提示文案（含空白行说明）', 'got=' + status.textContent);
     assert(status.className.includes('dsh-ip-status-error'), 't5c 拦截提示用错误样式');
     assert(titleInput._focused !== true, 't5d 验收标准拦截不聚焦标题框（与空标题拦截区分）');
     // 情形 B：验收标准行全部删除（0 行）同样拦截
@@ -444,7 +444,7 @@ async function run() {
     doc.querySelector('.dsh-ip-btn-primary').click();
     await sleep(0);
     assert(fetchCalls === 0, 't5e 验收标准 0 行同样拦截', 'calls=' + fetchCalls);
-    assert(status.textContent === '⚠️ 验收标准至少写一条', 't5f 0 行时提示同样精确', 'got=' + status.textContent);
+    assert(status.textContent === '⚠️ 验收标准至少写一条（空白行不计入）', 't5f 0 行时提示同样精确', 'got=' + status.textContent);
     // 情形 C：填写后放行
     doc.querySelector('.dsh-ip-add-accept').click();
     doc.querySelector('.dsh-ip-accept').value = '验收项';
@@ -463,7 +463,7 @@ async function run() {
     const optimizeBtn = doc.querySelector('.dsh-ip-btn-optimize');
     doc.querySelector('.dsh-ip-title').value = '测试标题';
     optimizeBtn.click();
-    assert(status.textContent === '⚠️ 验收标准至少写一条', 't6 优化按钮在验收标准为空时同样拦截', 'got=' + status.textContent);
+    assert(status.textContent === '⚠️ 验收标准至少写一条（空白行不计入）', 't6 优化按钮在验收标准为空时同样拦截', 'got=' + status.textContent);
     assert(status.className.includes('dsh-ip-status-error'), 't6b 优化拦截用错误样式');
     // 填写后：优化按钮放行到占位提示（FR-3 开发中；#37 起接 host 路由）
     doc.querySelector('.dsh-ip-accept').value = '验收项';
@@ -546,6 +546,112 @@ async function run() {
     const sent = JSON.parse(calls[0].opts.body);
     assert(sent.title === '完整测试' && sent.task === '步骤一' && sent.refs.length === 1 && sent.refs[0] === '#12' && sent.acceptItems.length === 1 && sent.acceptItems[0] === '- [ ] 验收', 't9b 四字段完整发送', 'got=' + JSON.stringify(sent));
     assert(sent.body === undefined, 't9c payload 无旧 body 字段');
+  }
+
+  // --- t10: P0-01（#36 评审）列表输入框类名 = 样式类 + 字段类 ---
+  {
+    const doc = makeDoc();
+    makeSidebar(doc);
+    const { mod, ctx } = loadClient(doc, null, MockMutationObserver);
+    mod.apply(ctx);
+    const refInput = doc.querySelector('.dsh-ip-ref');
+    const acceptInput = doc.querySelector('.dsh-ip-accept');
+    // 样式选择器 .dsh-ip-row-input 必须命中（此前只赋字段类，真实浏览器样式全失效）
+    assert(refInput.className.split(/\s+/).includes('dsh-ip-row-input'), 't10 引用输入框带样式类 dsh-ip-row-input', 'className=' + JSON.stringify(refInput.className));
+    assert(refInput.className.split(/\s+/).includes('dsh-ip-ref'), 't10b 引用输入框保留字段类 dsh-ip-ref（draft 收集选择器）');
+    assert(acceptInput.className.split(/\s+/).includes('dsh-ip-row-input'), 't10c 验收输入框带样式类 dsh-ip-row-input');
+    assert(acceptInput.className.split(/\s+/).includes('dsh-ip-accept'), 't10d 验收输入框保留字段类 dsh-ip-accept');
+    // 样式选择器在 stub 中可命中（与真实 CSS 规则一致）
+    assert(doc.querySelectorAll('.dsh-ip-row-input').length === 2, 't10e .dsh-ip-row-input 选择器命中两行输入框', 'count=' + doc.querySelectorAll('.dsh-ip-row-input').length);
+  }
+
+  // --- t11: P1-03（#36 评审）全空白验收行 → 拦截且提示「空白行不计入」 ---
+  {
+    const doc = makeDoc();
+    makeSidebar(doc);
+    let fetchCalls = 0;
+    const fetchImpl = () => { fetchCalls++; return Promise.resolve({ ok: true, status: 201, json: () => Promise.resolve({ number: 7, html_url: 'https://x/7' }) }); };
+    const { mod, ctx } = loadClient(doc, fetchImpl, MockMutationObserver);
+    mod.apply(ctx);
+    const status = doc.querySelector('.dsh-ip-status');
+    doc.querySelector('.dsh-ip-title').value = '测试标题';
+    // 三行验收标准全部纯空白 → 过滤后为空 → 拦截（行数≠有效条数）
+    doc.querySelector('.dsh-ip-add-accept').click();
+    doc.querySelector('.dsh-ip-add-accept').click();
+    const ais = doc.querySelectorAll('.dsh-ip-accept');
+    ais[0].value = '   ';
+    ais[1].value = '\t';
+    ais[2].value = '';
+    doc.querySelector('.dsh-ip-btn-primary').click();
+    await sleep(0);
+    assert(fetchCalls === 0, 't11 全空白验收行不发请求', 'calls=' + fetchCalls);
+    assert(status.textContent === '⚠️ 验收标准至少写一条（空白行不计入）', 't11b 提示含「空白行不计入」', 'got=' + status.textContent);
+  }
+
+  // --- t12: P1-01（#36 评审）列表容器缺失 → collectDraft 返回 null，推送静默防御不崩溃 ---
+  {
+    const doc = makeDoc();
+    makeSidebar(doc);
+    let fetchCalls = 0;
+    const fetchImpl = () => { fetchCalls++; return Promise.resolve({ ok: true, status: 201, json: () => Promise.resolve({ number: 8, html_url: 'https://x/8' }) }); };
+    const { mod, ctx } = loadClient(doc, fetchImpl, MockMutationObserver);
+    mod.apply(ctx);
+    doc.querySelector('.dsh-ip-title').value = '测试标题';
+    doc.querySelector('.dsh-ip-accept').value = '验收项';
+    // 模拟外部脚本移除引用容器（结构异常）：collectDraft 应返回 null 而非空数组
+    const refsContainer = doc.querySelector('.dsh-ip-refs');
+    refsContainer.remove();
+    doc.querySelector('.dsh-ip-btn-primary').click();
+    await sleep(0);
+    assert(fetchCalls === 0, 't12 容器缺失不发请求（collectDraft=null 静默防御）', 'calls=' + fetchCalls);
+    // 验收容器缺失同理
+    const acceptsContainer = doc.querySelector('.dsh-ip-accepts');
+    acceptsContainer.remove();
+    doc.querySelector('.dsh-ip-btn-primary').click();
+    await sleep(0);
+    assert(fetchCalls === 0, 't12b 验收容器缺失同样不发请求', 'calls=' + fetchCalls);
+  }
+
+  // --- t13: P1-02（#36 评审）resetList 只删 .dsh-ip-row，外部注入节点保留 ---
+  {
+    const doc = makeDoc();
+    makeSidebar(doc);
+    const fetchImpl = () => Promise.resolve({ ok: true, status: 201, json: () => Promise.resolve({ number: 9, html_url: 'https://x/9' }) });
+    const { mod, ctx } = loadClient(doc, fetchImpl, MockMutationObserver);
+    mod.apply(ctx);
+    doc.querySelector('.dsh-ip-title').value = '标题';
+    doc.querySelector('.dsh-ip-accept').value = '验收项';
+    doc.querySelector('.dsh-ip-ref').value = '#1';
+    doc.querySelector('.dsh-ip-add-ref').click();
+    doc.querySelectorAll('.dsh-ip-ref')[1].value = '#2';
+    // 外部注入一个非 row 节点到引用容器（模拟浏览器插件）
+    const foreign = doc.createElement('div');
+    foreign.className = 'foreign-widget';
+    foreign.textContent = '外部组件';
+    const refsContainer = doc.querySelector('.dsh-ip-refs');
+    refsContainer.appendChild(foreign);
+    // 推送成功 → clearForm → resetList
+    doc.querySelector('.dsh-ip-btn-primary').click();
+    await sleep(0);
+    // 外部节点保留，行被重置为单行空
+    assert(refsContainer.querySelector('.foreign-widget') === foreign, 't13 外部注入节点在 resetList 后保留', 'children=' + refsContainer.children.length);
+    assert(doc.querySelectorAll('.dsh-ip-ref').length === 1 && doc.querySelector('.dsh-ip-ref').value === '', 't13b 行重置为单行空', 'count=' + doc.querySelectorAll('.dsh-ip-ref').length);
+  }
+
+  // --- t14: P2-03（#36 评审）空标题+空验收标准 → 标题校验优先（推送侧） ---
+  {
+    const doc = makeDoc();
+    makeSidebar(doc);
+    let fetchCalls = 0;
+    const fetchImpl = () => { fetchCalls++; return Promise.resolve({ ok: true, status: 201, json: () => Promise.resolve({ number: 10, html_url: 'https://x/10' }) }); };
+    const { mod, ctx } = loadClient(doc, fetchImpl, MockMutationObserver);
+    mod.apply(ctx);
+    const status = doc.querySelector('.dsh-ip-status');
+    // 标题空 + 验收空 → 先报「标题是必填的」（校验顺序：标题 → 验收标准）
+    doc.querySelector('.dsh-ip-btn-primary').click();
+    await sleep(0);
+    assert(fetchCalls === 0, 't14 双空不发请求', 'calls=' + fetchCalls);
+    assert(status.textContent === '⚠️ 标题是必填的', 't14b 双空时标题校验优先', 'got=' + status.textContent);
   }
 
   // --- 汇总 ---
