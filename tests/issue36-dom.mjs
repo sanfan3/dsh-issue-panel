@@ -457,23 +457,31 @@ async function run() {
   {
     const doc = makeDoc();
     makeSidebar(doc);
-    const { mod, ctx } = loadClient(doc, null, MockMutationObserver);
+    let fetchCalls = 0;
+    const fetchImpl = () => {
+      fetchCalls++;
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ ok: true, value: { draft: { title: 't', task: '', refs: [], acceptItems: ['- [ ] a'] }, parseError: null } }) });
+    };
+    const { mod, ctx } = loadClient(doc, fetchImpl, MockMutationObserver);
     mod.apply(ctx);
     const status = doc.querySelector('.dsh-ip-status');
     const optimizeBtn = doc.querySelector('.dsh-ip-btn-optimize');
     doc.querySelector('.dsh-ip-title').value = '测试标题';
     optimizeBtn.click();
+    await sleep(0);
     assert(status.textContent === '⚠️ 验收标准至少写一条（空白行不计入）', 't6 优化按钮在验收标准为空时同样拦截', 'got=' + status.textContent);
     assert(status.className.includes('dsh-ip-status-error'), 't6b 优化拦截用错误样式');
-    // 填写后：优化按钮放行到占位提示（FR-3 开发中；#37 起接 host 路由）
+    // 填写后：优化按钮放行 → 发起 /optimize 请求（#39 起接 host 路由；弹窗细节由 issue39-dom 覆盖）
     doc.querySelector('.dsh-ip-accept').value = '验收项';
     optimizeBtn.click();
-    assert(status.textContent.includes('优化功能开发中'), 't6c 验收标准已填时优化按钮放行（FR-3 占位提示）', 'got=' + status.textContent);
-    assert(!status.className.includes('dsh-ip-status-error'), 't6d 占位提示非错误样式');
+    await sleep(0);
+    assert(fetchCalls === 1, 't6c 验收标准已填时优化按钮放行并发起 /optimize 请求', 'calls=' + fetchCalls);
     // 标题为空时优化按钮先拦标题
     doc.querySelector('.dsh-ip-title').value = '';
     optimizeBtn.click();
+    await sleep(0);
     assert(status.textContent === '⚠️ 标题是必填的', 't6e 优化按钮空标题拦截（标题校验优先）', 'got=' + status.textContent);
+    assert(fetchCalls === 1, 't6f 空标题拦截不发请求', 'calls=' + fetchCalls);
   }
 
   // --- t7: draft 收集（标题 trim / 任务 trim / refs 过滤空串 / acceptItems 规范化） ---
