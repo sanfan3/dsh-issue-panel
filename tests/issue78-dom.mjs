@@ -671,6 +671,34 @@ async function run() {
     const ctx = { effect(fn) { const r = fn(); if (typeof r === 'function') cleanups.push(r); } };
     mod.apply(ctx);
     assert(doc.querySelectorAll('[data-dsh-issue-panel-entry]').length === 1, 't9d 插件仍可正常应用且入口唯一');
+
+    // t9e/t9f（#10 评审第 2 轮 P1-01）：含 "duplicate" 但非 factory 的错误
+    // （如 'duplicate graph entry'）不得被误判为重复注册——应原样抛出而非 warn 降级。
+    {
+      const docG = makeDoc();
+      makeSidebar(docG);
+      const warnsG = [];
+      const errorsG = [];
+      const sandboxG = {
+        window: { setTimeout, clearTimeout },
+        document: docG,
+        console: { ...console, warn: (...a) => warnsG.push(a.join(' ')), error: (...a) => errorsG.push(a.join(' ')) },
+        setTimeout,
+        clearTimeout,
+        MutationObserver: MockMutationObserver,
+      };
+      sandboxG.window.__ModuleLoader__ = {
+        load() { throw new Error('client-modules: duplicate graph entry "x"'); },
+      };
+      let threw = false;
+      try {
+        vm.runInNewContext(CLIENT_SRC, sandboxG, { filename: 'client.js' });
+      } catch (e) {
+        threw = true;
+      }
+      assert(threw === true, 't9e duplicate graph entry（非 factory）不被静默降级，原样抛出');
+      assert(warnsG.length === 0 && errorsG.length === 0, 't9f 非 factory duplicate 错误不产生 warn/error 噪音', 'warns=' + JSON.stringify(warnsG));
+    }
   }
 
   // --- 汇总 ---
