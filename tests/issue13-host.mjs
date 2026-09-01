@@ -46,7 +46,10 @@ const prompt = buildOptimizePrompt(sampleDraft);
 assert(typeof prompt === 'string' && prompt.length > 100, 'p1 提示词非空且足够长', 'len=' + prompt.length);
 assert(prompt.includes('动词开头') && prompt.includes(`不超过 ${TITLE_MAX_CHARS} 字`), 'p2 标题规则（动词开头 ≤25 字）写入', 'TITLE_MAX_CHARS=' + TITLE_MAX_CHARS);
 assert(prompt.includes('步骤清单') && prompt.includes('数字序号'), 'p3 任务拆步骤规则写入');
-assert(prompt.includes('保留用户已填的全部引用') && prompt.includes('去重'), 'p4 引用保留+合并去重规则写入');
+// P0-01（#38 第 2 轮评审）：规则 3 收紧为「纯保留 + 零新增」——不得再含「提取补充」类
+// 暗示（headless 无联网能力，禁止编造引用），AI 侧 refs 恒为用户原样。
+assert(prompt.includes('保留用户已填的全部引用') && prompt.includes('不要添加任何新的引用'), 'p4 引用纯保留+零新增规则写入');
+assert(!prompt.includes('提取补充') && !prompt.includes('查询 GitHub'), 'p4b 规则 3 不含「提取补充/查询 GitHub」编造暗示');
 assert(prompt.includes('"- [ ] "') && prompt.includes('不改变验收意图'), 'p5 验收标准规则写入');
 assert(prompt.includes('只输出一个 JSON 对象') && prompt.includes('acceptItems'), 'p6 输出 JSON 要求写入');
 assert(prompt.includes(JSON.stringify('做 一个 需求面板')), 'p7 用户标题以 JSON 字符串嵌入');
@@ -141,6 +144,14 @@ assert(r.error === null && r.draft.title === '优化标题' && deepEqual(r.draft
 r = parseOptimizeOutput('## 验收标准\n- [x] 已勾选保留\n- [ ]\n- 无前缀条目');
 assert(r.error === null && deepEqual(r.draft.acceptItems, ['- [x] 已勾选保留', '- [ ] 无前缀条目']), 's5 验收节勾选态保留 + 纯前缀空条目剔除 + 无前缀补全', JSON.stringify(r.draft.acceptItems));
 
+// P1-01（#38 第 2 轮评审，方案 B）：节名行多冒号内联内容全部作为字段值（s4c 锁定语义）
+r = parseOptimizeOutput('## 标题：A：B\n## 验收标准\n- [ ] 标准一');
+assert(r.error === null && r.draft.title === 'A：B', 's4c 节名多冒号内联内容全取（## 标题：A：B → title="A：B"）', 'title=' + JSON.stringify(r.draft.title));
+
+// P1-03（#38 第 2 轮评审）：前导零序号（0)/00)）不再被剥前缀，保留原样作为普通内容
+r = parseOptimizeOutput('## 任务\n0) 步骤零\n1) 步骤一');
+assert(r.error === null && r.draft.task === '0) 步骤零\n步骤一', 's6 前导零序号不剥前缀（0) 保留原样，1) 正常剥离）', 'task=' + JSON.stringify(r.draft.task));
+
 // ==================== parseOptimizeOutput：完全无法解析 ====================
 console.log('== parseOptimizeOutput：非法输入 ==');
 
@@ -180,6 +191,11 @@ assert(normalizeAcceptItem(null) === '' && normalizeAcceptItem(42) === '', 'a6 �
 assert(normalizeAcceptItem('- [ ]') === '', 'a7 纯前缀「- [ ]」无内容 → 空');
 assert(normalizeAcceptItem('- [x]') === '', 'a7b 纯前缀「- [x]」无内容 → 空');
 assert(normalizeAcceptItem('- [ ]   ') === '', 'a7c 前缀后仅空白 → 空');
+// P1-02（#38 第 2 轮评审）：前缀后仅零宽/不可见字符 → 空条目（`.+`/`\S` 会匹配零宽空格导致残留）
+assert(normalizeAcceptItem('- [x] \u200B') === '', 'a8 前缀后仅零宽空格 U+200B → 空');
+assert(normalizeAcceptItem('- [ ] \uFEFF') === '', 'a8b 前缀后仅 BOM U+FEFF → 空');
+assert(normalizeAcceptItem('- [x] \u200B\u200D\u2060\u180E') === '', 'a8c 前缀后仅多种零宽字符 → 空');
+assert(normalizeAcceptItem('- [x] \u200B内容') === '- [x] \u200B内容', 'a8d 零宽字符后有真实内容 → 保留原样（勾选态）');
 
 // ==================== mergeRefs ====================
 console.log('== mergeRefs ==');
@@ -202,6 +218,25 @@ r = mergeRefs(null, ['#1']);
 assert(deepEqual(r, ['#1']), 'm8 非数组输入容错');
 r = mergeRefs([42, '#1'], [null, '#2']);
 assert(deepEqual(r, ['#1', '#2']), 'm9 非字符串元素过滤');
+// P2-01（#38 第 2 轮评审）：URL 仅协议+主机名小写、路径大小写敏感——路径不同不算重复
+r = mergeRefs(['https://Example.com/Path'], ['https://example.com/path']);
+assert(deepEqual(r, ['https://Example.com/Path', 'https://example.com/path']), 'm10 URL 路径大小写敏感（Path ≠ path，都保留）', JSON.stringify(r));
+r = mergeRefs(['https://Example.com/Path'], ['HTTPS://example.com/Path']);
+assert(deepEqual(r, ['https://Example.com/Path']), 'm10b URL 协议+主机名大小写不敏感（去重，保留用户首个写法）', JSON.stringify(r));
+r = mergeRefs(['#ABC'], ['#abc']);
+assert(deepEqual(r, ['#ABC']), 'm10c issue 号整串小写去重（非纯数字也小写）', JSON.stringify(r));
+
+// ==================== parseOptimizeOutput：parseError 场景 ====================
+console.log('== parseOptimizeOutput：parseError 场景（P2-03）==');
+
+// 完全无法解析 → error 非 null、draft 四字段全空
+r = parseOptimizeOutput('垃圾输出');
+assert(r.error !== null && deepEqual(r.draft, { title: '', task: '', refs: [], acceptItems: [] }), 'g6 垃圾输出 → error 非 null + 四字段全空', JSON.stringify(r));
+// 路由层行为（lib/index.js handleOptimize）：parseError 非 null 时仍执行 mergeRefs，
+// 但 parsed.draft.refs 为空 → 合并结果 = 用户原文（不丢失用户已填引用）
+const userDraft = { title: 'T', task: '', refs: ['#1'], acceptItems: ['- [ ] A'] };
+const mergedRefs = mergeRefs(userDraft.refs, r.draft.refs);
+assert(deepEqual(mergedRefs, ['#1']), 'g6b parseError 时合并 refs 保留用户原文（不丢失）', JSON.stringify(mergedRefs));
 
 // ==================== 汇总 ====================
 console.log('----------------------------------------');
