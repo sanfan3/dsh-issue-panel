@@ -138,6 +138,25 @@ console.log('== runHeadless：输入过长 ==');
   assert(fake.calls.length === 0, 'h7b 超长时不触发 spawn（Windows 命令行上限防御）');
 }
 
+// ==================== runHeadless：同步 spawn 抛错 ====================
+console.log('== runHeadless：同步 spawn 抛错 ==');
+
+{
+  // 沙箱/权限环境（EPERM）或参数非法时 execFile 同步 throw —— 必须转错误信封而非 reject
+  //（否则 handler 拒绝会被 dsh webServer 兜底成裸 400 空响应，客户端无法展示原因）。
+  const syncThrow = () => {
+    const err = new Error('spawn EPERM');
+    err.code = 'EPERM';
+    throw err;
+  };
+  let rejected = false;
+  const p = runHeadless('p', { execFileImpl: syncThrow, dshBin: 'C:/dsh/bin.js' });
+  const r = await p.catch((e) => { rejected = true; return null; });
+  assert(rejected === false, 'h8 同步 spawn 抛错不 reject（Promise 正常 resolve）');
+  assert(r && r.ok === false && r.error.code === 'optimize-spawn-failed', 'h8b 同步抛错 → optimize-spawn-failed 信封', JSON.stringify(r));
+  assert(r.error.message.includes('EPERM'), 'h8c 信封消息含原始原因', r.error.message);
+}
+
 // ==================== 端到端纯函数流（模拟 route 第 3/4 步） ====================
 console.log('== 端到端纯函数流 ==');
 
