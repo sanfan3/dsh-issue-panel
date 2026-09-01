@@ -169,6 +169,18 @@ console.log('== b8 引用/验收标准原样保留 ==');
   assert(body === expected, 'b8 条目 trim 保留内容原样（前缀/勾选态不二次改写）', JSON.stringify(body));
 }
 
+// ==================== b9 空 acceptItems 数组（防御路径） ====================
+console.log('== b9 空 acceptItems 数组（防御路径） ==');
+{
+  // P2-02（#40 评审）：handleCreate 已强制至少一条，但 buildIssueBody 作为纯函数
+  // 应独立覆盖防御路径：空数组 → 仅「## 验收标准」段头（无条目行）。
+  const body = buildIssueBody({ task: '', refs: [], acceptItems: [] });
+  assert(body === '## 验收标准', 'b9 空数组 → 仅段头（无尾随换行/条目）', JSON.stringify(body));
+
+  const body2 = buildIssueBody({ task: '单行任务', refs: [], acceptItems: [] });
+  assert(body2 === '## 任务\n1) 单行任务\n\n## 验收标准', 'b9b 空验收数组但任务非空 → 任务段 + 段头', JSON.stringify(body2));
+}
+
 // ==================== 汇总 ====================
 console.log('----------------------------------------');
 console.log(`issue40-host: ${passed} passed, ${failed} failed`);

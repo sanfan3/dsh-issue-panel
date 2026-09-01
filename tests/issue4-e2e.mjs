@@ -116,7 +116,9 @@ await removeConfig();
   r = await call('/api/issue-panel/create', { method: 'GET' });
   check('GET 打到 create 路由 → 405', r.status === 405 && r.data?.error?.code === 'method-not-allowed', `got ${r.status}`);
 
-  r = await call('/api/issue-panel/create', { raw: `{"title":"x","acceptItems":["- [ ] a"],"body":"${'a'.repeat(1024 * 1024 + 100)}"}` });
+  // P1-01（#40 评审）：413 超大负载不应带 body 字段（#40 起正文由 host 分节拼装，payload 无 body），
+  // 超大负载改用 task 字段承载，避免误导读者以为 API 仍接受 body。
+  r = await call('/api/issue-panel/create', { raw: `{"title":"x","task":"${'a'.repeat(1024 * 1024 + 100)}","acceptItems":["- [ ] a"]}` });
   check('超大 body（>1MB）→ 413', r.status === 413, `got ${r.status}`);
 
   // 回归（评审 P1-03）：未配置时 #3 路由仍正常
